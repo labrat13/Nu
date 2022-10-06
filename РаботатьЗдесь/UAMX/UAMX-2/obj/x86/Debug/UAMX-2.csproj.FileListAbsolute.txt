@@ -1,0 +1,7 @@
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\bin\x86\Debug\UAMX2-Readme.txt
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\bin\x86\Debug\UAMX2-Version.txt
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\bin\x86\Debug\UAMX-2.dll
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\bin\x86\Debug\UAMX-2.pdb
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\obj\x86\Debug\ResolveAssemblyReference.cache
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\obj\x86\Debug\UAMX-2.dll
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\obj\x86\Debug\UAMX-2.pdb

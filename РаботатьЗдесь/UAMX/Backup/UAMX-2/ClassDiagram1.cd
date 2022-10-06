@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Comment CommentText="Определенные">
+    <Position X="0.5" Y="0.5" Height="0.302" Width="0.992" />
+  </Comment>
+  <Comment CommentText="Не определенные">
+    <Position X="6.76" Y="0.5" Height="0.323" Width="1.117" />
+  </Comment>
+  <Class Name="UAMX_2.ElementId" Collapsed="true">
+    <Position X="0.5" Y="1" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AIBCACAAQAggAQAkAAQAAAAGAAAAAAQAAAACAQAAAAA=</HashCode>
+      <FileName>ElementId.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.ElementIdManager" Collapsed="true">
+    <Position X="0.5" Y="1.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAEAFEAACAICAAAAAAAAAAAAEAAAAAAAA=</HashCode>
+      <FileName>ElementIdManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.ElementLink" Collapsed="true">
+    <Position X="2.25" Y="1" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AIRACCAAIAkAgUAEQAACAAAEAgAAAAAARAACAQAAgAA=</HashCode>
+      <FileName>ElementLink.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.ElementLinkCollection" Collapsed="true">
+    <Position X="2.25" Y="1.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAIAAAAAAAgAAAAEAAAQAAAABAAEAAAAAAAAAQBQAAA=</HashCode>
+      <FileName>ElementLinkCollection.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.Engine" Collapsed="true">
+    <Position X="8.5" Y="1" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IQCAAAAEAAAALgAEAAAAAgAAAAAAAEASgAAIAACAAAA=</HashCode>
+      <FileName>Engine.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.Utility" Collapsed="true">
+    <Position X="2.25" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IAAAAAIAhEAAQAAAAAAAAAIAAIgAAAAAAAAAAAQAAAA=</HashCode>
+      <FileName>Utility.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.EngineSettings" Collapsed="true">
+    <Position X="4" Y="1" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>CEAQwABAMACgAEBEAAAkoECAAATgAAABEABKQQAAFAA=</HashCode>
+      <FileName>EngineSettings.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.Element" Collapsed="true">
+    <Position X="6.75" Y="1" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>QAIGAAAAhIAgFMAMAAACAACAAFAggAAAUAAAAAAAQKA=</HashCode>
+      <FileName>Element.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UAMX_2.RecordBase" Collapsed="true">
+    <Position X="4" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAgAAAAAIAAAAEAAIAIIAAAAAIAAEAACAAAQAAABA=</HashCode>
+      <FileName>RecordBase.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Enum Name="UAMX_2.EnumCardState" Collapsed="true">
+    <Position X="0.5" Y="2.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAARAAAAAAAAAQAAAAAAAAAAAAAAAEAAA=</HashCode>
+      <FileName>EnumCardState.cs</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Enum Name="UAMX_2.EnumElementState" Collapsed="true">
+    <Position X="4" Y="1.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAIAAAAAAAIAAAAAAAAAAAAAA=</HashCode>
+      <FileName>EnumElementState.cs</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Font Name="Tahoma" Size="8.25" />
+</ClassDiagram>

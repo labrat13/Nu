@@ -1,0 +1,326 @@
+Заимствуем код из Инвентарь.
+Тут нет отдельного движка, и сразу открывается файл БД.
+И файлов настроек нет, и выделенного каталога для проекта нет.
+А в остальном все подходит.
+Тут есть меню главного окна приложения.
+И тут надо создавать резервную копию БД перед ее изменением. Это занимает много времени, и форма подтормаживает в этот момент.
+Поэтому вопрос с бекапом и отменой изменений - сложный вопрос, который надо отдельно продумывать потом.
+----------------------------------------------------------
+Приложение - оболочка
+----------------------------------------------------------
+Класс главной формы приложения:
+
+поле объекта Движка: в этом приложении нет движка. тут сразу БД открывается, но смысл тот же.
+        /// <summary>
+        /// Слой абстракции БД
+        /// </summary>
+        private CDbLayer m_dblayer;
+
+функция Form_Load(..)
+{
+//тут загрузить из файла настроек приложения путь к последнему открытому проекту и попытаться автоматически открыть его
+            //Загрузить путь к файлу БД из настроек приложения и открыть БД.
+            //Если файл отсутствует, ничего не открывать.
+            string basefilename = Properties.Settings.Default.LastBaseFile;
+            if(File.Exists(basefilename))
+                OpenDatabaseFile(basefilename); //открываем файл БД
+            //а если файл БД неправильный, ничего не открываем, ждем пользователя
+...
+//если бд не открыта
+            if (this.m_dblayer == null)
+            {
+                //можно вывести сообщение в строке состояния - так неназойливо
+                setStatusStripText("Откройте БД для начала работы");
+                //Это запуск приложения впервые или если не найдена база данных, тут надо показать справку
+                ShowHelp();
+                //return;
+            }
+            else
+            {
+                //а если бд открыта...
+                
+                //создаем бекап-копию бд после успешного открытия
+                //17122015 - резервная копия создается перед первым внесением изменений в БД. Это ускоряет запуск приложения при большой БД.
+                //CreateBackupCopyDb(basefilename) - перенесено в CurrentElementSaveChanges2()
+                
+                //05012016 - создаем менеджер меню импорта описаний предметов
+                //CreateImportingManager(); = перенести в начало, так как здесь он не вызывается при первом запуске БД и поэтому выдает исключения при первом сеансе. Портит первое впечатление.
+                
+                //сбросить пока текст строки состояния
+                setStatusStripText("");
+                
+                //парсим аргументы командной строки и показываем сущность по аргументам
+                String weblink = CWebNameLink.ExtractWeblinkFromProgramArguments();
+                //Отобразить элемент по веб-связи
+                ShowElementByLink(weblink);
+
+                //return;
+            }
+		
+}
+
+
+Эта функция открывает указанный проект.
+      /// <summary>
+        /// RT-Открыть файл БД
+        /// </summary>
+        /// <param name="basefilename"></param>
+        private void OpenDatabaseFile(string basefilename)
+        {
+            //надо сначала закрыть ранее открытую БД
+            if (this.m_dblayer != null)
+                CloseDatabaseFile();
+            ////теперь создать новый интерфейс БД, загрузить коллекцию 
+            //единиц измерения количества предметов в память до показа карточки предмета 
+            //инициализировать корневые элементы классификаций 
+            //Установить картинку для корневого контейнера
+            this.m_dblayer = CDbLayer.SetupDbLayer(CDbLayer.createConnectionString(basefilename));
+
+            //modify form title
+            changeFormTitle(Path.GetFileName(basefilename));
+            //store database filename to application Setting
+            Properties.Settings.Default.LastBaseFile = basefilename;
+            Properties.Settings.Default.Save();
+
+            //установить флаг одноразового создания резервной копии БД
+            this.m_currentDatabaseWriteOnceForBackup = true;
+
+            //создать объект менеджера дерева
+            this.m_treeManager = new CLeftPanelTreeViewManager(this.treeView1, m_dblayer);
+            //11042015 - создать объект менеджера вкладки поиска
+            SearchFields sf = (SearchFields) Properties.Settings.Default.SearchFields;
+            this.m_searchManager = new CSearchPanelManager(this.listView_SearchTab_SearchResults, m_dblayer, sf);
+            //включить контролы формы
+            EnableFormControls(true);
+
+            return;
+        }
+		
+Эта функция закрывает открытый проект.
+        /// <summary>
+        /// RT-Закрыть открытый файл БД
+        /// </summary>
+        private void CloseDatabaseFile()
+        {
+            //сохранить настройки поиска в настройках приложения
+            if (m_searchManager != null)
+            {
+                RadioBase.Properties.Settings.Default.SearchFields = m_searchManager.getSearchFieldsAsInt32();
+            } 
+            //save application settings before exit
+            Properties.Settings.Default.Save();
+            //disconnect database
+            if(this.m_dblayer != null)
+                this.m_dblayer.Disconnect();
+            //destroy db layer
+            this.m_dblayer = null;
+
+            //сбросить объект менеджера дерева
+            if (this.m_treeManager != null)
+            {
+                this.m_treeManager.ClearTree(); //удалим все из дерева и списка иконок, чтобы не висело там ничего при закрытии БД
+                this.m_treeManager = null;
+            }
+            //Выключить все контролы формы, поскольку БД не открыта
+            EnableFormControls(false);
+            //modify form title
+            changeFormTitle("");
+
+            return;
+        }
+Эта функция меняет название формы, чтобы оно отражадло открытый проект.
+Это часть инфраструктуры формы. Ее должен переопределить пользователь, так как код зависит от реализации формы.		
+        /// <summary>
+        /// RT-Изменить заголовок главной формы
+        /// </summary>
+        /// <param name="p">Название проекта</param>
+        private void changeFormTitle(string p)
+        {
+            if (String.IsNullOrEmpty(p))
+                this.Text = RadioBase.Properties.Resources.MainFormTitle; // FormTitle;
+            else this.Text = p + " - " + RadioBase.Properties.Resources.MainFormTitle; //FormTitle;
+            return;
+        }
+		
+Это функция, которая включает или выключает меню и контролы формы, если объект движка доступен или недоступен соответственно.
+Это часть инфраструктуры формы. Ее должен переопределить пользователь, так как список контролов зависит от реализации формы.		
+		/// <summary>
+        /// RT-Включить или выключить контролы формы при открытии-закрытии БД
+        /// </summary>
+        /// <param name="enable"></param>
+        private void EnableFormControls(bool enable)
+        {
+            //дерево слева
+            this.treeView1.Nodes.Clear(); //удалить все ноды
+            this.treeView1.Enabled = enable;//выключить или включить
+
+            //панель вкладок справа
+            this.tabControl_RightPane.TabPages.Clear(); //удалить все вкладки
+            this.tabControl_RightPane.Enabled = enable; //выключить или включить
+            
+            //меню
+            //TODO: проверить, что все пункты меню здесь указаны, включаются и выключаются
+            openToolStripMenuItem.Enabled = !enable;
+            closeToolStripMenuItem.Enabled = enable;
+            editToolStripMenuItem.Enabled = enable;
+            testToolStripMenuItem.Enabled = enable;
+            createCategoryToolStripMenuItem.Enabled = enable;
+            createContainerToolStripMenuItem.Enabled = enable;
+            createEntityToolStripMenuItem.Enabled = enable;
+            clearTrashbagToolStripMenuItem.Enabled = enable;
+            //пункты меню Help не надо выключать
+            //пункт меню File-Open всегда включен. Просто уже открытую БД закрываем после подтверждения пользователя.
+
+            //тулбары
+            //тут пока нет используемых кнопок, выключать нечего.
+
+            return;
+        }
+		
+		
+------------------------
+Меню главной формы приложения-оболочки
+-------------------------
+Файл
+- Создать проект..
+-------------------
+- Открыть..
+- Закрыть..		
+-------------------
+- Выход
+
+Правка - всякие создания, удаления, поиск тут
+
+Инструменты - разные утилиты
+...
+--------------------
+- Настройки ->
+-- тут разные пункты для диалогов с настройками приложения
+--------------------
+
+Справка
+- Содержание
+-------------
+- О программе
+
+----------------------------------
+Обработчики пунктов меню главной формы
+----------------------------------
+Это пункт меню Файл-Создать...
+Здесь файл БД копируется из каталога установки приложения в указанное место и имя.
+Для проекта все должно быть немного иначе...
+        private void newDbToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //создать новую БД из шаблона
+            //шаблон template_db.mdb в корневом каталоге приложения
+            String tmpltPath;
+            tmpltPath = Path.Combine(Application.StartupPath, "template_db.mdb");
+            //save file
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.DefaultExt = ".mdb";
+            sfd.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            sfd.Title = "Создать файл базы данных";
+            sfd.Filter = "Файлы баз данных (*.mdb)|*.mdb|Все файлы (*.*)|*.*";
+            sfd.OverwritePrompt = true;
+            if (sfd.ShowDialog() != DialogResult.OK) return;
+            //после создания записать путь к ней в настройки приложения
+            //Функция записывает в настройки, закрывает текущую, открывает указанную БД
+            File.Copy(tmpltPath, sfd.FileName, true);
+
+            OpenDatabaseFile(sfd.FileName);
+            return;
+        }
+Это пункт меню Выход
+        /// <summary>
+        /// RT-Пользователь закрывает форму через меню.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //закрыть форму
+            this.Close();
+        }		
+А это обработчик. который вызывается при закрытии формы:
+        /// <summary>
+        /// RT-Пользователь или система закрывает форму.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            //в любом случае закрывается форма, этот код проводит завершение работы и очистку
+            CloseDatabaseFile();
+        }		
+
+Этообработчик пункта Файл-Открыть...
+        /// <summary>
+        /// Открыть файл БД
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            ofd.Multiselect = false;
+            ofd.Title = "Открыть файл базы данных";
+            ofd.Filter = "Файлы баз данных (*.mdb)|*.mdb|Все файлы (*.*)|*.*";
+            if (ofd.ShowDialog() != DialogResult.OK) return; 
+            //Вызвать функцию открытия файла БД
+            OpenDatabaseFile(ofd.FileName);
+            //тут надо отобразить вид по умолчанию после открытия приложения без аргументов
+            ShowElementByLink(String.Empty); //TODO: После первого релиза вместо этой функции вызвать более конкретную, если не будет всяких наворотов.
+            
+            return;
+        }		
+Это обработчик пункта Файл-Закрыть...
+        /// <summary>
+        /// RT-Команда меню Close
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void closeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //Закрыть текущую БД
+            CloseDatabaseFile();
+            return;
+        }
+
+Это обработчики меню Справка
+        
+        /// <summary>
+        /// RT-Показать окно О программе
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void aboutInventoryToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            AboutBox frm = new AboutBox();
+            frm.ShowDialog(this);
+            frm.Dispose();
+            return;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void contentsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //операции показа справки по программе
+            ShowHelp();
+        }
+        /// <summary>
+        /// NT-Показать файл справки
+        /// </summary>
+        private void ShowHelp()
+        {
+            Help.ShowHelp(this, Path.Combine(Application.StartupPath, "Инвентарь.chm"));
+        }
+		
+		
+		
+		
+		
+		

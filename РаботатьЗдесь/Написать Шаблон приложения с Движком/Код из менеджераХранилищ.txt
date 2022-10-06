@@ -1,0 +1,1022 @@
+Основные детали устройства проекта для шаблона:
+
+- приложение-оболочка
+-- настройки - путь к последнему открытому проекту
+-- файл-болванка справки приложения-оболочки .chm
+-- форма диалога О программе, стандартная или кастомная.
+- сборка движка
+-- файл БД внести как ресурс в сборку движка, и чтобы он обновлялся в ресурсе при компиляции проекта.
+- каталог проекта
+- БД проекта
+- файл настроек проекта (файл + класс для доступа)
+- менеджер для управления каталогом проекта (класс)
+- адаптер БД (класс)
+- Класс, представляющий движок.
+-- функция Создать БД - извлечь БД из ресурсов сборки движка.
+-- другие стандартные функции Адаптера БД.
+- функции движка: Создать, Открыть, Закрыть, Идентифицировать каталог проекта.
+- БотАпи - примерный набор функций, особенно обслуживающие функции.
+
+--------------------------------------------
+Тут проект состоит из:
+- собственно движка
+- приложения-оболочки поиска в Хранилищах - оно только находит и читает множество Хранилищ.
+- приложения-утилиты StorageTools - оно и работает с хранилищем индивидуально.
+--------------------------------------------
+приложение-оболочка StorageSearch
+--------------------------------------------
+В настройках приложения путь к проекту не хранится. Там хранится массив путей к хранилищам.
+А для их указания пользователем нужна специальная форма. Она там есть, ее можно применять в таких случаях.
+
+Здесь код формы сокращен тем, что всю работу выполняет объект класса StorageSearcher, а форма просто оболочка над ним. И контролы заполняются тоже в объекте StorageSearcher, они туда передаются ссылками.
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+		  ..загрузить из настроек приложения все нужные данные
+		
+		}
+		
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            //Сохранить все, что берется из настроек приложения:
+            ...
+
+            //Сохранить настройки в файле настроек
+            Properties.Settings.Default.Save();
+
+            return;
+        }
+
+Здесь же используется функция движка, определяющая. является ли папка - папкой Хранилища. То есть, требуемым проектом.
+            //если это папка хранилища, создать ноду хранилища
+            if (Manager.IsStorageFolder(p))
+		
+---------------------------------------------------		
+приложение-оболочка StorageTools
+---------------------------------------------------
+- тут нет такого меню, как в Инвентарь. Тут Хранилище открывается на каждую операцию отдельно.
+- Это приложение совсем не подходит для шаблона. Движок просто открывается на время операции и закрывается сразу же.
+
+Типичный конвертер:
+            AddLogString(String.Format("Импорт модуля свойств {0} в Хранилище {1}", propModuleFolder, storageFolder));
+            Manager man = null;
+            try
+            {
+                //1 открыть БД модуля
+				...
+
+                //2 Открываем Хранилище
+                man = new Manager();
+                man.Open(storageFolder);
+                AddLogString("Хранилище открыто: " + storageFolder);
+                //далее работаем с хранилищем
+                //3 считать каждую запись из БД модуля 
+				...
+                if (rdr.HasRows)
+                    while (rdr.Read())
+                    {
+						//получаем исходные данные
+						...
+                        //добавляем в хранилище
+                        AddEntity(man, false, cat, title, descr, docfile, picfile);
+
+                        //print Entity title to user
+                        AddLogString("Добавлена запись: " + title);
+
+                        Application.DoEvents();
+                    }
+                //завершить операцию
+                //8 закрыть менеджер
+                man.Close();
+                AddLogString("Хранилище закрыто");
+                AddLogString("Добавление документов завершено");
+
+-----------------------------------------
+Движок собственно:
+-----------------------------------------
+- файл БД помещен в ресурсы сборки как _base
+- нет стандартного файла настроек для сборки - используется самодельный класс StorageInfo.
+  Он устроен как словарь, имена ключей фиксированные. Есть проперти, которые добывают значения из этого словаря. Вполне готовый класс для использования в других проектах, только надо переписать его проперти и названия ключей.
+-- название файла настроек стандартное: "description.xml"  
+-- версия Хранилища задана там же в коде = 1.0  
+- есть класс движка: Manager
+-- движок содержит ссылку на адаптер БД
+-- движок содержит флаг ТолькоЧтение
+-- движок содержит объект сеанса движка, который управляет логом сеанса и каталогом хранилища.
+-- движок не содержит менеджера каталога проекта. Вместо этого используются два раздельных сложных менеджера файлов для картинок и документов. Папку проекта и его содержимое создает сам Движок, и в дальнейшем она не изменяется. Никаких дополнительных файлов в ней не хранится, поэтому и собственный менеджер не нужен. 
+- есть адаптер БД: DbAdapter
+-- может быть открыт в режиме только для чтения
+-- содержит константу - стандартное название файла БД (но лучше бы это в классе файла настроек хранить, как и все настройки)
+-- БД имеет таблицу ид-ключ-значение, в ней хранятся свойства Хранилища, подобно как в словаре. Это оригинальный прием, если надо только один объект хранить в таблице, но с неизвестным заранее числом свойств. 
+
+
+Функции движка:
+
+        /// <summary>
+        /// NT-Начать сеанс работы с Хранилищем
+        /// </summary>
+        /// <param name="storagePath">Путь к каталогу Хранилища</param>
+        public void Open(String storagePath)
+		{
+		    //check disk writable
+            this.m_ReadOnly = isReadOnly(storagePath);
+			...
+			//init database
+            string db = Path.Combine(storagePath, DbAdapter.DatabaseFileName);
+            this.m_db = DbAdapter.SetupDbAdapter(this, db, this.m_ReadOnly);
+			...
+		}
+		
+Это вспомогательная функция, вызывается толькопри создани нового Хранилища.
+Она почти такая же, как Open() только немного другая.
+        /// <summary>
+        /// NT-Открыть хранилище один раз при его создании, 
+        /// когда БД еще не содержит всех нужных данных, а ее уже надо открыть.  
+        /// </summary>
+        /// <param name="si"></param>
+        private void openIfNewOnly(StorageInfo si)		
+
+Функция Закрыть Хранилище
+        /// <summary>
+        /// NT-Завершить сеанс работы с Хранилищем
+        /// </summary>
+        public void Close()
+        {
+            //store Storage statistics
+            this.updateStorageInfo();//check read-only included
+            //close storage
+            m_Session.Close();//close current session
+            m_db.Disconnect();
+            m_db = null;
+			//тут сбросить остальные переменные движка
+
+            return;
+        }		
+		
+		/// <summary>
+        /// NR-Оптимизация Хранилища - незакончено, неясно как сделать и как использовать потом
+        /// </summary>
+        public void OptimizeStorage()
+        {
+            CheckReadOnly();
+            //сбросить буферизированные файлы в архивы, чтобы они не портили мне всю схему
+            this.FlushBuffered();
+            //TODO: добавить код оптимизаци Хранилища здесь
+            throw new System.NotImplementedException();
+        }
+
+Функция очистки Хранилища. Ни разу не пользовался, проще создать новое Хранилище. 
+Но для комплекта тут реализована.
+		/// <summary>
+        /// NFT-Очистить Хранилище
+        /// </summary>
+        /// <returns>Return True if success, False otherwise</returns>
+        public bool ClearStorage()
+        {
+            CheckReadOnly();
+            //сбросить буферизированные файлы в архивы, чтобы они не портили мне всю схему
+            this.FlushBuffered();
+            //Тут очищаем все таблицы БД кроме таблицы свойств, удаляем все архивы, пересчитываем статистику и вносим ее в БД.
+            //в результате должно получиься пустое Хранилище, сохранившее свойства - имя, квалифицированное имя, путь итп.
+            if (m_db.ClearDb() == true)
+            {
+                m_docController.Clear();
+                m_picController.Clear();
+                this.updateStorageInfo();//это будет выполнено также при закрытии менеджера.
+                return true;
+            }
+            else return false;
+        }
+
+Функция создания Хранилища. 
+Тут пользователь должен заполнить свойства Хранилища и движок создаст Хранилище.
+Так как там много специфических свойств, которые знает только пользователь.
+Мне же для темы шаблона нужен только путь к каталогу Хранилища - проекта.
+Важно, что нужно указать путь к Каталогу Хранилища (а не к родительской категории), но эта папка не должна уже существовать.
+        /// <summary>
+        /// NFT-Создать Хранилище
+        /// </summary>
+        /// <returns>Возвращает готовый к работе, открытый менеджер Хранилища</returns>
+        public static Manager CreateStorage(StorageInfo si)
+        {
+            //регистрировать Хранилище будет сам РеестрХранилищ
+            //1) создать каталог хранилища
+            //создать корневой каталог хранилища
+            if (Directory.Exists(si.StoragePath))
+                throw new Exception("Storage already exists!");
+            DirectoryInfo di = new DirectoryInfo(si.StoragePath);
+            di.Create();
+            //установить атрибуты, запрещающие индексацию, архивацию и прочее в том же духе
+            di.Attributes = (di.Attributes | FileAttributes.NotContentIndexed);
+            di = null;
+            //создать файл описания хранилища
+            StorageInfo.StoreInfo(si);
+            //создать подкаталоги хранилища docs pics
+            String pics = Path.Combine(si.StoragePath, ArchiveController.ImagesDir);
+            Directory.CreateDirectory(pics);
+            String docs = Path.Combine(si.StoragePath, ArchiveController.DocumentsDir);
+            Directory.CreateDirectory(docs);
+            //извлечь из ресурсов сборки в корневой каталог шаблон БД хранилища
+            String db = Path.Combine(si.StoragePath, DbAdapter.DatabaseFileName);
+            extractDbFile(db);
+            //2) открыть менеджер хранилища
+            Manager man = new Manager();
+            man.openIfNewOnly(si);//записать данные о хранилище в БД, кроме пути к хранилищу
+            man.Close();
+            //вернуть открытый менеджер хранилища
+            man.Open(si.StoragePath);
+            return man;
+        }		
+		
+Функция определения типа каталога		
+		/// <summary>
+        /// NT-Проверить, что указанный каталог является каталогом Хранилища
+        /// </summary>
+        /// <param name="path">Путь к каталогу</param>
+        /// <returns>Возвращает true, если каталог является каталогом Хранилища. В противном случае возвращает false</returns>
+        public static bool IsStorageFolder(string path)
+        {
+            //критерии:
+            //папка должна содержать файл "description.xml"
+            //папка должна содержать файл db.mdb
+            //папка должна содержать папки docs pics
+            //файл "description.xml" должен читаться без проблем
+            
+            String p = Path.Combine(path, ArchiveController.DocumentsDir);
+            if (!Directory.Exists(p)) return false;
+            p = Path.Combine(path, ArchiveController.ImagesDir);
+            if (!Directory.Exists(p)) return false;
+            p = Path.Combine(path, DbAdapter.DatabaseFileName);
+            if (!File.Exists(p)) return false;
+            p = Path.Combine(path, Manager.DescriptionFileName);
+            if (!File.Exists(p)) return false;
+            //try load descr file
+            bool result = true;
+            try
+            {
+                StorageInfo si = StorageInfo.GetInfo(path);
+            }
+            catch (Exception)
+            {
+                result = false;
+            }
+            return result;
+        }
+
+      /// <summary>
+        /// NFT-Удалить Хранилище
+        /// </summary>
+        /// <param name="storagePath">Путь к каталогу Хранилища</param>
+        /// <returns>Возвращает true, если Хранилище успешно удалено или его каталог не существует.
+        /// Возвращает false, если удалить Хранилище не удалось по какой-либо причине.</returns>
+        public static bool DeleteStorage(String storagePath)
+        {
+            //Из реестра Хранилищ удалять будет сам РеестрХранилищ.
+            
+            //если каталог не существует, возвращаем  true
+            if(!Directory.Exists(storagePath)) return true;
+            //1) если Хранилище на диске только для чтения, то вернуть false.
+            if (isReadOnly(storagePath)) return false;
+            //2) пробуем переименовать каталог Хранилища
+            //если получится, то каталог никем не используется. удалим каталог и вернем true.
+            //иначе будет выброшено исключение - перехватим его и вернем false
+            //сначала еще надо сгенерировать такое новое имя каталога, чтобы незанятое было.
+            String newName = String.Empty;
+            String preRoot = Path.GetDirectoryName(storagePath);
+            for (int i = 0; i < 16384; i++)
+            {
+                newName = Path.Combine(preRoot, "tmp" + i.ToString());
+                if (!Directory.Exists(newName)) break;
+            }
+            //тут мы должны оказаться с уникальным именем
+            if (Directory.Exists(newName))
+                throw new Exception("Error! Cannot create temp directory name!");
+            //пробуем переименовать каталог
+            try
+            {
+                Directory.Move(storagePath, newName);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            //каталог не используется, удалим его
+            //TODO: вот лучше бы его через шелл и в корзину удалить. Хотя... Удалять же будет не приложение. Некому показывать шелл.
+            //Надо это решить как удобнее будет. Может, через аргументы передавать способ - с гуем в корзину или нет.
+            Directory.Delete(newName, true);
+            //если тут возникнут проблемы, то хранилище все равно уже будет повреждено.
+            //так что выброшенное исключение достанется вызывающему коду.
+            return true;
+        }
+
+Еще есть функция получения информации о Хранилище,
+но я не знаю, пригодится ли тут она. Она просто возвращает содержимое файла настроек хранилища, который содержит также и статистику Хранилища.
+Поэтому я не стал ее тут приводить.		
+		
+Эта функция возвращает объект, указанный ссылкой. Но я это не использую сейчас, поэтому не знаю, как правильно.		
+		/// <summary>
+        /// NT-Получить запись сущности по ссылке
+        /// </summary>
+        /// <param name="lb">Билдер распарсенной ссылки для изоляции от исключений и удобства</param>
+        /// <returns>Возвращает запись сущности или null, если записи с таким идентификатором не существует.</returns>
+        public EntityRecord GetEntityByLink(LinkBuilder lb)
+        {
+            if (lb.Linktype != LinkType.EntityRecordLink)
+                throw new ArgumentException("Invalid link type", "lb");
+            //check storage qname
+            if(String.Equals(this.m_qualifiedStorageName, lb.StorageQName, StringComparison.OrdinalIgnoreCase) == false)
+                throw new ArgumentException("Storage qualified name mismatched", "lb");
+            //get entity table id
+            int tableid = lb.TableId;
+            //load from database
+            EntityRecord result = this.m_db.getEntityById(tableid);
+            return result;
+        }
+		
+Инфраструктурные функции:	использованы	
+       /// <summary>
+        /// NT-Возвращает флаг что указанное Хранилище может обновляться.
+        /// </summary>
+        /// <returns>Returns True if storage is ReadOnly, False otherwise</returns>
+        private static bool isReadOnly(String storageRootFolder)
+        {
+            bool ro = false;
+            //generate test file name
+            String test = Path.Combine(storageRootFolder, "writetest.txt");
+            
+            try
+            {
+                //if test file already exists, try remove it
+                if (File.Exists(test))
+                    File.Delete(test);//тут тоже будет исключение, если каталог read-only
+                //test creation 
+                FileStream fs = File.Create(test);
+                fs.Close();
+            }
+            catch (Exception)
+            {
+                ro = true;
+            }
+            finally
+            {
+                File.Delete(test);
+            }
+            return ro;
+        }
+        /// <summary>
+        /// NT-Получить строку версии текущей сборки
+        /// </summary>
+        /// <returns></returns>
+        public static string getEngineVersionString()
+        {
+            //DONE: Убедиться что это возвращает версию текущей сборки а не приложения.
+            return Assembly.GetExecutingAssembly().GetName().Version.ToString();
+        }
+        /// <summary>
+        /// NT-Извлечь файл шаблона базы данных из ресурсов сборки
+        /// </summary>
+        /// <param name="filepath">Путь к итоговому файлу</param>
+        private static void extractDbFile(string filepath)
+        {
+            FileStream fs = new FileStream(filepath, FileMode.Create);
+            byte[] content = Properties.Resources._base;//database template name
+            fs.Write(content, 0, content.Length);
+            fs.Close();
+        }
+        /// <summary>
+        /// NT-Проверить режим read-only и выбросить исключение
+        /// </summary>
+        private void CheckReadOnly()
+        {
+            if (this.m_ReadOnly == true)
+                throw new Exception("Error: Writing to read-only storage!");
+        }
+
+--------------------------------------------------------------------------
+Классы файла настроек: - использованы
+
+Используется в множестве объектов Движка Хранилищ как универсальный класс: и хранилище и конвертер
+/// <summary>
+    /// Базовый класс переноса данных Хранилища
+    /// </summary>
+    public class RecordBase
+    {
+        /// <summary>
+        /// Словарь для хранения данных в системе ключ-значение
+        /// </summary>
+        protected Dictionary<String, String> m_dictionary;
+    
+        public RecordBase()
+        {
+            m_dictionary = new Dictionary<string, string>(16);
+        }
+
+        ~RecordBase()
+        {
+            m_dictionary.Clear();
+        }
+
+        /// <summary>
+        /// Получить внутренний словарь для прямого чтения
+        /// </summary>
+        /// <returns></returns>
+        internal Dictionary<String, String> getBaseDictionary()
+        {
+            return m_dictionary;
+        }
+
+        protected void setValue(string name, long val)
+        {
+            this.m_dictionary[name] = val.ToString(CultureInfo.InvariantCulture);
+        }
+
+        protected void setValue(string name, int val)
+        {
+            this.m_dictionary[name] = val.ToString(CultureInfo.InvariantCulture);
+        }
+
+        protected void setValue(string name, UInt32 val)
+        {
+            this.m_dictionary[name] = val.ToString(CultureInfo.InvariantCulture);
+        }
+
+        internal void setValue(string name, string val)
+        {
+            this.m_dictionary[name] = val;
+        }
+
+        protected void setValue(string name, bool val)
+        {
+            this.m_dictionary[name] = val.ToString();
+        }
+
+
+        protected UInt32 getValueAsUInt32(string name)
+        {
+            return UInt32.Parse(this.m_dictionary[name], CultureInfo.InvariantCulture);
+        }
+        protected Int64 getValueAsInt64(string name)
+        {
+            return Int64.Parse(this.m_dictionary[name], CultureInfo.InvariantCulture);
+        }
+        protected Int32 getValueAsInt32(string name)
+        {
+            return Int32.Parse(this.m_dictionary[name], CultureInfo.InvariantCulture);
+        }
+        protected string getValueAsString(string name)
+        {
+            return this.m_dictionary[name];
+        }
+        protected bool getValueAsBoolean(string name)
+        {
+            return Boolean.Parse(this.m_dictionary[name]);
+        }
+
+-----------------------------------------------------
+/// <summary>
+    /// Предоставляет сводную информацию о Хранилище.
+    /// Используется только вне этой сборки, внешними потребителями.
+    /// </summary>
+    /// <remarks>
+    /// Содержит словарь, в котором хранятся все значения свойств хранилища, 
+    /// функции для работы с файлом описания хранилища и проперти для доступа к свойствам хранилища.
+    /// Читает или создает файл описания хранилища.
+    /// </remarks>
+    public class StorageInfo: RecordBase
+    {
+        
+        #region Константы названий тегов словаря
+        //они же используются в БД как имена свойств в таблице свойств хранилища.
+        internal const string tagStoragePath  = "StoragePath";
+        internal const string tagReadOnly  = "ReadOnly";
+        internal const string tagStorageVersion  = "StorageVersion";
+        internal const string tagEngineVersion  = "EngineVersion";
+        internal const string tagCreator  = "Creator";
+        internal const string tagTitle  = "Title";
+        internal const string tagQualifiedName  = "QualifiedName";
+        internal const string tagDescription  = "Description";
+        internal const string tagStorageType  = "StorageType";
+        internal const string tagPicsSize  = "PicsSize";
+        internal const string tagDocsCount  = "DocsCount";
+        internal const string tagDocsSize  = "DocsSize";
+        internal const string tagPicsCount  = "PicsCount";
+        internal const string tagEntityCount  = "EntityCount";
+        internal const string tagDatabaseSize  = "DatabaseSize";
+        internal const string tagUsingCounter  = "UsingCounter";
+        //всего 16 штук
+        #endregion
+
+        internal const string StorageVersionString = "1.0";
+
+        public StorageInfo()
+        {
+            //fill dictionary with default items
+            m_dictionary.Clear();
+            m_dictionary.Add(tagStoragePath, String.Empty);
+            m_dictionary.Add(tagReadOnly, Boolean.FalseString);
+            m_dictionary.Add(tagStorageVersion, StorageVersionString);//THEME: QNAME - если формат хранилища изменится, то и здесь надо изменить значение. И проверку совместимости сделать.
+            m_dictionary.Add(tagEngineVersion, Manager.getEngineVersionString());
+            m_dictionary.Add(tagCreator, "Павел Селяков");
+            m_dictionary.Add(tagTitle, String.Empty);
+            m_dictionary.Add(tagQualifiedName, String.Empty);//THEME: QNAME - переработать все места по этой теме
+            m_dictionary.Add(tagDescription, String.Empty);
+            m_dictionary.Add(tagStorageType, String.Empty);
+            m_dictionary.Add(tagPicsSize, "0");
+            m_dictionary.Add(tagDocsCount, "0");
+            m_dictionary.Add(tagDocsSize, "0");
+            m_dictionary.Add(tagPicsCount, "0");
+            m_dictionary.Add(tagEntityCount, "0");
+            m_dictionary.Add(tagDatabaseSize, "0");
+            m_dictionary.Add(tagUsingCounter, "0");
+            //total 15 items
+
+        }
+
+        //TODO: переделать все эти проперти на вызовы класса RecordBase
+        //TODO: добавить еще свойство язык описания сущностей. Хотя обычно используется несколько языков, англ + русский.
+        //Но как их оба вписать? я пишу русский.
+
+        #region *** Properties ***
+        /// <summary>
+        /// Путь к корневому каталогу Хранилища
+        /// </summary>
+        public string StoragePath
+        {
+            get
+            {
+                return this.m_dictionary[tagStoragePath];
+            }
+            set
+            {
+                m_dictionary[tagStoragePath] = value;
+            }
+        }
+
+        /// <summary>
+        /// read-only flag
+        /// </summary>
+        /// <remarks>По умолчанию значение false.</remarks>
+        public bool ReadOnly
+        {
+            get
+            {
+                //return Boolean.Parse(this.m_dictionary[]);
+                return this.getValueAsBoolean(tagReadOnly);
+            }
+            internal set
+            {
+                this.setValue(tagReadOnly, value);
+                //m_dictionary["ReadOnly"] = value.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Версия структуры Хранилища
+        /// </summary>
+        public string StorageVersion
+        {
+            get
+            {
+                return this.m_dictionary[tagStorageVersion];
+            }
+            set
+            {
+                m_dictionary[tagStorageVersion] = value;
+            }
+        }
+
+        /// <summary>
+        /// Версия менеджера Хранилища
+        /// </summary>
+        public string EngineVersion
+        {
+            get
+            {
+                return this.m_dictionary[tagEngineVersion];
+            }
+            //internal set
+            //{
+            //    m_dictionary["EngineVersion"] = value;
+            //}
+            //тут вообще незачем его устанавливать вне собственного класса
+        }
+
+        /// <summary>
+        /// Создатель Хранилища
+        /// </summary>
+        public string Creator
+        {
+            get
+            {
+                return this.m_dictionary[tagCreator];
+            }
+            set
+            {
+                m_dictionary[tagCreator] = value;
+            }
+        }
+
+        /// <summary>
+        /// Название Хранилища краткое, вроде "Микросхемы"
+        /// </summary>
+        /// <remarks>
+        /// Не должно содержать символы :. так как используется в КвалифицированноеИмяХранилища.
+        /// </remarks>
+        public string Title
+        {
+            get
+            {
+                return this.m_dictionary[tagTitle];
+            }
+            set
+            {
+                m_dictionary[tagTitle] = value;
+            }
+        }
+
+
+
+        /// <summary>
+        /// Полное квалификационное имя Хранилища, вроде "Radiodata.Микросхемы"
+        /// </summary>
+        public string QualifiedName
+        {
+            //Также DbAdapter.getStorageQName() использует это название тега для доступа к значению. 
+            get
+            {
+                return this.m_dictionary[tagQualifiedName];
+            }
+            set
+            {
+                m_dictionary[tagQualifiedName] = value;
+            }
+        }
+
+        /// <summary>
+        /// Текст описания Хранилища
+        /// </summary>
+        public string Description
+        {
+            get
+            {
+                return this.m_dictionary[tagDescription];
+            }
+            set
+            {
+                m_dictionary[tagDescription] = value;
+            }
+        }
+
+        /// <summary>
+        /// Тип данных Хранилища в нотации типов Оператора.
+        /// </summary>
+        public string StorageType
+        {
+            get
+            {
+                return this.m_dictionary[tagStorageType];
+            }
+            set
+            {
+                m_dictionary[tagStorageType] = value;
+            }
+        }
+
+        /// <summary>
+        /// Размер архивов документов
+        /// </summary>
+        public Int64 DocsSize
+        {
+            get
+            {
+                return Int64.Parse(this.m_dictionary[tagDocsSize], CultureInfo.InvariantCulture);
+            }
+            internal set
+            {
+                m_dictionary[tagDocsSize] = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>
+        /// Число файлов в архивах документов
+        /// </summary>
+        public int DocsCount
+        {
+            get
+            {
+                return Int32.Parse(this.m_dictionary[tagDocsCount], CultureInfo.InvariantCulture);
+            }
+            internal set
+            {
+                m_dictionary[tagDocsCount] = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>
+        /// Размер архивов изображений
+        /// </summary>
+        public long PicsSize
+        {
+            get
+            {
+                return Int64.Parse(this.m_dictionary[tagPicsSize], CultureInfo.InvariantCulture);
+            }
+            internal set
+            {
+                m_dictionary[tagPicsSize] = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>
+        /// Число файлов в архивах изображений
+        /// </summary>
+        public int PicsCount
+        {
+            get
+            {
+                return Int32.Parse(this.m_dictionary[tagPicsCount], CultureInfo.InvariantCulture);
+            }
+            internal set
+            {
+                m_dictionary[tagPicsCount] = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>
+        /// Число записей сущностей в БД
+        /// </summary>
+        public int EntityCount
+        {
+            //TODO: переделать все эти проперти на вызовы класса RecordBase
+            get
+            {
+                return Int32.Parse(this.m_dictionary[tagEntityCount], CultureInfo.InvariantCulture);
+            }
+            internal set
+            {
+                m_dictionary[tagEntityCount] = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>
+        /// Размер файла БД.
+        /// </summary>
+        public long DatabaseSize
+        {
+            get
+            {
+                return this.getValueAsInt64(tagDatabaseSize);
+                //return Int64.Parse(this.m_dictionary["DatabaseSize"], CultureInfo.InvariantCulture); 
+            }
+            internal set
+            {
+                this.setValue(tagDatabaseSize, value);
+                //m_dictionary["DatabaseSize"] = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+        /// <summary>
+        /// Размер файла БД.
+        /// </summary>
+        public long UsingCounter
+        {
+            get
+            {
+                return this.getValueAsInt64(tagUsingCounter);
+
+            }
+            internal set
+            {
+                this.setValue(tagUsingCounter, value);
+            }
+        }
+
+#endregion
+
+        #region *** Functions ***
+        /// <summary>
+        /// NT-Получить информацию о хранилище
+        /// </summary>
+        /// <param name="storagePath">Корневой каталог хранилища</param>
+        /// <returns>Объект информации о хранилище</returns>
+        public static StorageInfo GetInfo(String storagePath)
+        {
+            String p = Path.Combine(storagePath, Manager.DescriptionFileName);
+            StorageInfo si = new StorageInfo();
+            si.LoadFromFile(p);
+            return si;
+        }
+
+        internal static bool StoreInfo(StorageInfo si)
+        {
+            //1 create new file or replace existing file
+            //это надо собирать здесь, так как менеджер не запущен.
+            string file = Path.Combine(si.StoragePath, Manager.DescriptionFileName); 
+
+            //TODO: Тут надо быстро подменить файл если он не заблокирован.
+            //несколько раз пытаемся его удалить, делая перерывы по 100мс.
+            //если все же не удалось, то возвращаем неудачу.
+            //но не исключение. - все же это не критическая ошибка.
+            //если кто-то занял файл так надолго, то он его и обновит наверно тогда.
+
+            //это одинаковый алгоритм для первого создания файла и для обновления файла
+            for (int i = 0; i < 5; i++)
+            {
+                if (!File.Exists(file))
+                    break;
+                else
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        ;
+                    }
+                    Thread.Sleep(100);
+                }
+            }
+            //тут если удаление удалось, то надо перезаписать файл.
+            if (!File.Exists(file))
+            {
+                //create file
+                si.StoreToFile(file);
+                return true;
+            }
+            else
+                return false;
+        }
+
+        /// <summary>
+        /// NFT-Записать данные в файл описания хранилища
+        /// </summary>
+        /// <param name="filepath"></param>
+        public void StoreToFile(String filepath)
+        {
+            
+            //1 write info to string builder first 
+            StringBuilder sb = new StringBuilder();
+            XmlWriterSettings s = new XmlWriterSettings();
+            s.Encoding = Encoding.Unicode;
+            s.Indent = true;
+            XmlWriter wr = XmlWriter.Create(sb, s);
+            wr.WriteStartElement("StorageInfo");
+            //wr.WriteAttributeString("EngineVersion", m_dictionary["EngineVersion"]); - это нельзя потом прочитать!
+            //Записать предупреждение пользователю о бесполезности редактирования файла
+            wr.WriteElementString("DoNotEdit", "Не редактировать! Этот файл автоматически перезаписывается.");// - прочие свойства заменим на более простой синтаксис ниже
+            //вывести остальные свойства хранилища
+            _writeElement(wr, tagEngineVersion);
+            _writeElement(wr, tagStorageVersion);
+            _writeElement(wr, tagCreator);
+            _writeElement(wr, tagTitle);
+            _writeElement(wr, tagStorageType);
+            _writeElement(wr, tagStoragePath);
+            _writeElement(wr, tagQualifiedName);//THEME: QNAME - переработать все места по этой теме
+            _writeElement(wr, tagDescription);
+            _writeElement(wr, tagReadOnly);
+            _writeElement(wr, tagUsingCounter);
+            _writeElement(wr, tagEntityCount);
+            _writeElement(wr, tagDocsCount);
+            _writeElement(wr, tagPicsCount);
+            _writeElement(wr, tagDatabaseSize);
+            _writeElement(wr, tagDocsSize);
+            _writeElement(wr, tagPicsSize);
+            wr.WriteEndElement();
+            wr.Flush();
+            //2 get file and store to it fast
+            //TODO: тут нужен стойкий многопроцессный код с учетом возможных блокировок файла.
+            //а пока тут простое решение для отладки тестов.
+            StreamWriter sw = new StreamWriter(filepath, false, Encoding.Unicode);//пишем в юникоде а то все жалуются.
+            sw.Write(sb.ToString());
+            sw.Close();
+
+            return;
+        }
+        /// <summary>
+        /// RT-вывести свойство в xml-поток. Служебная функция для более простого синтаксиса.
+        /// </summary>
+        /// <param name="wr">Xml-писатель</param>
+        /// <param name="p">Название элемента словаря и свойства</param>
+        private void _writeElement(XmlWriter wr, string p)
+        {
+            wr.WriteElementString(p, m_dictionary[p]);
+        }
+
+
+        /// <summary>
+        /// RT-Загрузить данные из файла описания хранилища
+        /// </summary>
+        /// <param name="filepath">Путь к файлу описания хранилища</param>
+        public void LoadFromFile(String filepath)
+        {
+            //1 - read file to string buffer
+            StreamReader sr = new StreamReader(filepath, Encoding.Unicode);
+            String xml = sr.ReadToEnd();
+            sr.Close();
+            //2 - parse xml to data
+            XmlReaderSettings s = new XmlReaderSettings();
+            s.CloseInput = true;
+            s.IgnoreWhitespace = true;
+            XmlReader rd = XmlReader.Create(new StringReader(xml), s);
+            rd.Read();
+            rd.ReadStartElement("StorageInfo");
+
+            //read file version info - Облом. XmlReader атрибуты не читает.
+            //rd.MoveToNextAttribute();
+            //if (rd.Name != "EngineVersion")
+            //    throw new Exception("Error: Invalid format of description file!");
+            //String fileversion = rd.Value;
+            //rd.MoveToElement(); // move back to element node
+
+            //skip message for user
+            rd.ReadStartElement("DoNotEdit");
+            rd.ReadString();
+            rd.ReadEndElement();
+            //read list of properties
+            _readElement(rd, tagEngineVersion);
+            _readElement(rd, tagStorageVersion);
+            _readElement(rd, tagCreator);
+            _readElement(rd, tagTitle);
+            _readElement(rd, tagStorageType);
+            _readElement(rd, tagStoragePath);
+            _readElement(rd, tagQualifiedName);//THEME: QNAME - переработать все места по этой теме
+            _readElement(rd, tagDescription);
+            _readElement(rd, tagReadOnly);
+            _readElement(rd, tagUsingCounter);
+            _readElement(rd, tagEntityCount);
+            _readElement(rd, tagDocsCount);
+            _readElement(rd, tagPicsCount);
+            _readElement(rd, tagDatabaseSize);
+            _readElement(rd, tagDocsSize);
+            _readElement(rd, tagPicsSize);
+            //end of properties list
+            rd.ReadEndElement();
+            rd.Close();
+
+            return;
+        }
+
+        /// <summary>
+        /// NT-извлечь свойство из xml-потока. Служебная функция для более простого синтаксиса.
+        /// </summary>
+        /// <param name="rd"></param>
+        /// <param name="p"></param>
+        private void _readElement(XmlReader rd, string p)
+        {
+            rd.ReadStartElement(p);
+            String s = rd.ReadString();
+            m_dictionary[p] = s;
+            rd.ReadEndElement();
+            return;
+        }
+
+
+        /// <summary>
+        /// RT- fill object with test values
+        /// </summary>
+        public void fillTestValues()
+        {
+            DatabaseSize = 777;
+            Description = "test storage info";
+            DocsCount = 7;
+            DocsSize = 32768;
+            EntityCount = 456;
+            PicsCount = 99;
+            PicsSize = 456;
+            QualifiedName = "text.texst.Мурзилка 36";
+            ReadOnly = false;
+            StoragePath = "storage test path";
+            StorageType = "storage type";
+            StorageVersion = "1";
+            Title = "Тест журнал мурзилка";
+            UsingCounter = 445;
+
+        }
+
+        public override string ToString()
+        {
+            return String.Format("name={0};docs={1};pics={2}", this.QualifiedName, this.DocsCount, this.PicsCount);
+        }
+        #endregion
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

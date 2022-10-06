@@ -1,0 +1,10 @@
+C:\Documents and Settings\1\Мои документы\Visual Studio 2008\Projects\UAMX\UAMX-2\bin\Debug\UAMX-2.dll
+C:\Documents and Settings\1\Мои документы\Visual Studio 2008\Projects\UAMX\UAMX-2\bin\Debug\UAMX-2.pdb
+C:\Documents and Settings\1\Мои документы\Visual Studio 2008\Projects\UAMX\UAMX-2\obj\Debug\ResolveAssemblyReference.cache
+C:\Documents and Settings\1\Мои документы\Visual Studio 2008\Projects\UAMX\UAMX-2\obj\Debug\UAMX-2.dll
+C:\Documents and Settings\1\Мои документы\Visual Studio 2008\Projects\UAMX\UAMX-2\obj\Debug\UAMX-2.pdb
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\obj\Debug\ResolveAssemblyReference.cache
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\obj\Debug\UAMX-2.dll
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\obj\Debug\UAMX-2.pdb
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\bin\Debug\UAMX-2.dll
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\UAMX-2\bin\Debug\UAMX-2.pdb

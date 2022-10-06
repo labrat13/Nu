@@ -1,0 +1,9 @@
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\bin\x86\Release\UAMX2-Readme.txt
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\bin\x86\Release\UAMX2-Version.txt
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\bin\x86\Release\Tester.exe
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\bin\x86\Release\Tester.pdb
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\bin\x86\Release\UAMX-2.dll
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\bin\x86\Release\UAMX-2.pdb
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\obj\x86\Release\ResolveAssemblyReference.cache
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\obj\x86\Release\Tester.exe
+V:\МоиПроекты\UAMX\РаботатьЗдесь\UAMX\Tester\obj\x86\Release\Tester.pdb
