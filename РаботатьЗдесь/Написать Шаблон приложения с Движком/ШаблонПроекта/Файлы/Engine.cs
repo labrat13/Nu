@@ -190,9 +190,9 @@ namespace PMEngine
         /// </summary>
         /// <param name="path">Путь к каталогу</param>
         /// <returns>Возвращает true, если каталог является каталогом Хранилища. В противном случае возвращает false</returns>
-        public static bool IsProjectFolder(string path)
+        public static bool IsSolutionFolder(string path)
         {
-            return ProjectFolderManager.IsProjectFolder(path);
+            return SolutionManager.IsSolutionFolder(path);
         }
 
         /// <summary>
